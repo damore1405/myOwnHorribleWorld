@@ -129,113 +129,109 @@ var thing = function() {
 thing();
 </script>
  -->
- <!DOCTYPE html>
- <meta charset="utf-8">
- <body>
- <script src="//d3js.org/d3.v3.min.js"></script>
- <script src="//d3js.org/topojson.v1.min.js"></script>
- <script>
- 
- var width = 960,
-     height = 600;
- 
- var radius = height / 2 - 5,
-     scale = radius,
-     velocity = .01;
- 
- var projection = d3.geo.orthographic()
-     .translate([width / 2, height / 2])
-     .scale(scale)
-     .clipAngle(90);
- 
- var canvas = d3.select("body").append("canvas")
-     .attr("width", width)
-     .attr("height", height);
- 
- var context = canvas.node().getContext("2d");
- 
- var path = d3.geo.path()
-     .projection(projection)
-     .context(context);
- 
-     var addPing = function(lng, lat, options) {
-      options = options || {};
-      options.color = options.color || 'white';
-      options.angle = options.angle || 5;
-      options.ttl   = options.ttl   || 2000;
-      var ping = { time: new Date(), options: options };
-      ping.lng = lng;
-      ping.lat = lat;
-      pings.push(ping);
+<!DOCTYPE html>
+<meta charset="utf-8">
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script src="//d3js.org/topojson.v1.min.js"></script>
+<script>
+
+    var width = parseInt(window.innerWidth * .77),
+        height = parseInt(window.innerHeight * .80);
+
+    var radius = height / 2 - 6,
+        scale = radius,
+        velocity = .01;
+
+    var projection = d3.geo.orthographic()
+        .translate([width / 2, height / 2])
+        .scale(scale)
+        .clipAngle(90);
+
+    var canvas = d3.select("body").append("canvas")
+        .attr("width", width)
+        .attr("height", height);
+
+    var context = canvas.node().getContext("2d");
+
+    var path = d3.geo.path()
+        .projection(projection)
+        .context(context);
+
+    var addPing = function (lng, lat, options) {
+        options = options || {};
+        options.color = options.color || 'white';
+        options.angle = options.angle || 5;
+        options.ttl = options.ttl || 2000;
+        var ping = {time: new Date(), options: options};
+        ping.lng = lng;
+        ping.lat = lat;
+        pings.push(ping);
     };
 
-    var drawPings = function(context, now) {
-      var newPings = [];
-      for (var i = 0; i < pings.length; i++) {
-        var ping = pings[i];
-        var alive = now - ping.time;
-        if (alive < ping.options.ttl) {
-          newPings.push(ping);
-          drawPing(context, now, alive, ping);
+    var drawPings = function (context, now) {
+        var newPings = [];
+        for (var i = 0; i < pings.length; i++) {
+            var ping = pings[i];
+            var alive = now - ping.time;
+            if (alive < ping.options.ttl) {
+                newPings.push(ping);
+                drawPing(context, now, alive, ping);
+            }
         }
-      }
-      pings = newPings;
+        pings = newPings;
     };
 
-    var drawPing = function(context, now, alive, ping) {
-      var alpha = 1 - (alive / ping.options.ttl);
-      var color = d3.rgb(ping.options.color);
-      color = "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
-      context.strokeStyle = color;
-      var circle = d3.geo.circle()
-        .origin([ping.lng, ping.lat])
-        .angle(alive / ping.options.ttl * ping.options.angle)();
-      context.beginPath();
-      path.context(context)(circle);
-      context.stroke();
+    var drawPing = function (context, now, alive, ping) {
+        var alpha = 1 - (alive / ping.options.ttl);
+        var color = d3.rgb(ping.options.color);
+        color = "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
+        context.strokeStyle = color;
+        var circle = d3.geo.circle()
+            .origin([ping.lng, ping.lat])
+            .angle(alive / ping.options.ttl * ping.options.angle)();
+        context.beginPath();
+        path.context(context)(circle);
+        context.stroke();
     }
 
- d3.json("/world-110m.json", function(error, world) {
-  if (error) throw error;
-  context.clearRect(0, 0, width, height); 
-  
-
-  var land = topojson.feature(world, world.objects.land);
-  d3.timer(function(elapsed) {
-    projection.rotate([velocity * elapsed, 0]);
-
-    context.beginPath();
-    path.context(context)({type: 'Sphere'});
-    context.fillStyle =  'black';
-    context.fill();
-    context.stroke();
-
-    context.beginPath();
-    path.context(context)(land);    
-    context.fillStyle = 'blue'
-    context.fill();
-
-    var color = d3.rgb('white');
-    color = "rgb(" + color.r + "," + color.g + "," + color.b + ")";
-    var circle = d3.geo.circle().origin([-74.00, 40.71]).angle(2000 / elapsed * 5)();
-    context.beginPath();
-    context.strokeStyle = color;
-    path.context(context)(circle);
-    context.stroke();
-   });
+    d3.json("/world-110m.json", function (error, world) {
+        if (error) throw error;
+        context.clearRect(0, 0, width, height);
 
 
+        var land = topojson.feature(world, world.objects.land);
+        d3.timer(function (elapsed) {
+            renderFrame(elapsed, land)
+        });
+    });
 
-   var now = new Date();
-  addPing(-74.00, 40.71)
-   drawPings(context, now)
+    var renderFrame = function (elapsed, land) {
+        projection.rotate([velocity * elapsed, 0]);
 
+        // render the 'ocean' below the land
+        context.beginPath();
+        path.context(context)({type: 'Sphere'});
+        context.fillStyle = 'lightgrey';
+        context.fill();
+        context.stroke();
 
+        // render the land
+        context.beginPath();
+        path.context(context)(land);
+        context.fillStyle = 'DeepSkyBlue';
+        context.fill();
 
- });
+        var color = d3.rgb('white');
+        color = "rgb(" + color.r + "," + color.g + "," + color.b + ")";
+        var circle = d3.geo.circle().origin([-74.00, 40.71]).angle(2000 / elapsed * 5)();
+        context.beginPath();
+        context.strokeStyle = color;
+        path.context(context)(circle);
+        context.stroke();
 
-let pings = [];
+    };
 
- d3.select(self.frameElement).style("height", height + "px");
- 
- </script>
+    d3.select(self.frameElement).style("height", height + "px");
+
+</script>
