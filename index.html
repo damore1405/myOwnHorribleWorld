@@ -135,13 +135,15 @@ thing();
 <script src="//d3js.org/d3.v3.min.js"></script>
 <script src="//d3js.org/topojson.v1.min.js"></script>
 <script>
-
+    var print = function (x) {
+        console.log(x);
+    }
     var width = parseInt(window.innerWidth * .77),
-        height = parseInt(window.innerHeight * .80);
+        height = parseInt(window.innerHeight * .75);
 
-    var radius = height / 2 - 6,
+    var radius = height / 2 - 9,
         scale = radius,
-        velocity = .01;
+        velocity = .09;
 
     var projection = d3.geo.orthographic()
         .translate([width / 2, height / 2])
@@ -201,34 +203,77 @@ thing();
 
 
         var land = topojson.feature(world, world.objects.land);
+
+
+        // render the 'ocean' below the land
         d3.timer(function (elapsed) {
+
             renderFrame(elapsed, land)
         });
     });
 
+    // get all pings here, for now ill just fake them
+    var pings = [
+        {
+            lat: -74.00,
+            lon: 40.71,
+            time: new Date().getTime(),
+        },
+        {
+            lat: -64.00,
+            lon: 40.71,
+            time: new Date().getTime(),
+        }
+    ];
+
     var renderFrame = function (elapsed, land) {
         projection.rotate([velocity * elapsed, 0]);
 
-        // render the 'ocean' below the land
         context.beginPath();
         path.context(context)({type: 'Sphere'});
         context.fillStyle = 'lightgrey';
-        context.fill();
+        context.strokeStyle = '#2a3b84';
+        context.lineWidth = '15';
         context.stroke();
+        context.fill();
 
         // render the land
         context.beginPath();
         path.context(context)(land);
-        context.fillStyle = 'DeepSkyBlue';
+        context.fillStyle = '#2a3b84';
         context.fill();
 
-        var color = d3.rgb('white');
-        color = "rgb(" + color.r + "," + color.g + "," + color.b + ")";
-        var circle = d3.geo.circle().origin([-74.00, 40.71]).angle(2000 / elapsed * 5)();
-        context.beginPath();
-        context.strokeStyle = color;
-        path.context(context)(circle);
-        context.stroke();
+
+        var drawPings = function(pings) {
+            for (var x in pings) {
+                var ping = pings[x];
+                var now = new Date().getTime();
+//                print(ping);
+
+                var timediff = Math.abs(ping.time - now);
+
+                var color = d3.rgb('white');
+                var alpha = 1000 / timediff;
+
+                if (alpha < .3) {
+                    ping.time = new Date().getTime();
+                }
+
+
+                color = "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
+                var circle = d3.geo.circle().origin([ping.lat, ping.lon]).angle(timediff / 900)();
+                context.opacity = 10;
+                context.beginPath();
+                context.strokeStyle = color;
+                context.fillStyle = color;
+                path.context(context)(circle);
+                context.fill();
+                context.stroke();
+
+            }
+        }
+
+//        drawPings(pings);
 
     };
 
