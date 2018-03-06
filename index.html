@@ -1,164 +1,31 @@
-<!-- <html>
-<head>
-  <script type='text/javascript' src='http://d3js.org/d3.v3.min.js'></script>
-  <script type='text/javascript' src='http://d3js.org/topojson.v1.min.js'></script>
-  <script type='text/javascript' src='./planetaryjs.js'></script>
-</head>
-<body>
-    <canvas id='rotatingGlobe' 'cursor: move;'></canvas>
-</body>
-<script>
-var thing = function() {
-  var globe = planetaryjs.planet();
-  // Load our custom `autorotate` plugin; see below.
-  globe.loadPlugin(autorotate(10));
-  // The `earth` plugin draws the oceans and the land; it's actually
-  // a combination of several separate built-in plugins.
-  //
-  // Note that we're loading a special TopoJSON file
-  // (world-110m-withlakes.json) so we can render lakes.
-  globe.loadPlugin(planetaryjs.plugins.earth({
-    topojson: { file:   '/world-110m-withlakes.json' },
-    oceans:   { fill:   '#bdbdbd' },
-    land:     { fill:   '#2c3d7f' },
-    borders:  { stroke: '#2c3d7f' }
-  }));
-  // Load our custom `lakes` plugin to draw lakes; see below.
-  globe.loadPlugin(lakes({
-    fill: '#bdbdbd'
-  }));
-  // The `pings` plugin draws animated pings on the globe.
-  globe.loadPlugin(planetaryjs.plugins.pings());
-  // The `zoom` and `drag` plugins enable
-  // manipulating the globe with the mouse.
-  globe.loadPlugin(planetaryjs.plugins.zoom({
-    scaleExtent: [100, 300]
-  }));
-  globe.loadPlugin(planetaryjs.plugins.drag({
-    // Dragging the globe should pause the
-    // automatic rotation until we release the mouse.
-    onDragStart: function() {
-      this.plugins.autorotate.pause();
-    },
-    onDragEnd: function() {
-      this.plugins.autorotate.resume();
-    }
-  }));
-  // Set up the globe's initial scale, offset, and rotation.
-  globe.projection.scale(175).translate([175, 175]).rotate([0, -10, 0]);
-
-  // Every few hundred milliseconds, we'll draw another random ping.
-  var colors = ['red', 'yellow', 'white', 'orange', 'green', 'cyan', 'pink'];
-  setInterval(function() {
-    var lat = Math.random() * 170 - 85;
-    var lng = Math.random() * 360 - 180;
-    var color = colors[Math.floor(Math.random() * colors.length)];
-    globe.plugins.pings.add(lng, lat, { color: color, ttl: 9000, angle: Math.random() * 10 });
-  }, 150);
-
-  var canvas = document.getElementById('rotatingGlobe');
-  // Special code to handle high-density displays (e.g. retina, some phones)
-  // In the future, Planetary.js will handle this by itself (or via a plugin).
-  if (window.devicePixelRatio == 2) {
-    canvas.width = 800;
-    canvas.height = 800;
-    context = canvas.getContext('2d');
-    context.scale(2, 2);
-  }
-  // Draw that globe!
-  globe.draw(canvas);
-
-  // This plugin will automatically rotate the globe around its vertical
-  // axis a configured number of degrees every second.
-  function autorotate(degPerSec) {
-    // Planetary.js plugins are functions that take a `planet` instance
-    // as an argument...
-    return function(planet) {
-      var lastTick = null;
-      var paused = false;
-      planet.plugins.autorotate = {
-        pause:  function() { paused = true;  },
-        resume: function() { paused = false; }
-      };
-      // ...and configure hooks into certain pieces of its lifecycle.
-      planet.onDraw(function() {
-        if (paused || !lastTick) {
-          lastTick = new Date();
-        } else {
-          var now = new Date();
-          var delta = now - lastTick;
-          // This plugin uses the built-in projection (provided by D3)
-          // to rotate the globe each time we draw it.
-          var rotation = planet.projection.rotate();
-          rotation[0] += degPerSec * delta / 1000;
-          if (rotation[0] >= 180) rotation[0] -= 360;
-          planet.projection.rotate(rotation);
-          lastTick = now;
-        }
-      });
-    };
-  };
-
-  // This plugin takes lake data from the special
-  // TopoJSON we're loading and draws them on the map.
-  function lakes(options) {
-    options = options || {};
-    var lakes = null;
-
-    return function(planet) {
-      planet.onInit(function() {
-        // We can access the data loaded from the TopoJSON plugin
-        // on its namespace on `planet.plugins`. We're loading a custom
-        // TopoJSON file with an object called "ne_110m_lakes".
-        var world = planet.plugins.topojson.world;
-        lakes = topojson.feature(world, world.objects.ne_110m_lakes);
-      });
-
-      planet.onDraw(function() {
-        planet.withSavedContext(function(context) {
-          context.beginPath();
-          planet.path.context(context)(lakes);
-          context.fillStyle = options.fill || 'black';
-          context.fill();
-        });
-      });
-    };
-  };
-};
-
-thing();
-</script>
- -->
 <!DOCTYPE html>
 <meta charset="utf-8">
-<body>
-<script src="//d3js.org/d3.v3.min.js"></script>
+<body style="margin: unset; overflow: hidden">
+<script src="//d3js.org/d3.v4.min.js"></script>
 <script src="//d3js.org/topojson.v1.min.js"></script>
 <script>
     var print = function (x) {
         console.log(x);
     }
-    var width = parseInt(window.innerWidth * .77),
-        height = parseInt(window.innerHeight * .75);
+
+    window.addEventListener('resize',function () {
+        width = parseInt(window.innerWidth);
+        height = parseInt(window.innerHeight);
+        d3.select("canvas").attr("width", width).attr("height", height);
+        projection.fitSize([width, height], land);
+    });
+
+    var context;
+    var path;
+    var projection;
+    var land;
+
+    var width = parseInt(window.innerWidth),
+        height = parseInt(window.innerHeight);
 
     var radius = height / 2 - 9,
         scale = radius,
-        velocity = .09;
-
-    var projection = d3.geo.orthographic()
-        .translate([width / 2, height / 2])
-        .scale(scale)
-        .clipAngle(90);
-
-    var canvas = d3.select("body").append("canvas")
-        .attr("width", width)
-        .attr("height", height);
-
-    var context = canvas.node().getContext("2d");
-
-    var path = d3.geo.path()
-        .projection(projection)
-        .context(context);
+        velocity = .017;
 
     var addPing = function (lng, lat, options) {
         options = options || {};
@@ -189,7 +56,7 @@ thing();
         var color = d3.rgb(ping.options.color);
         color = "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
         context.strokeStyle = color;
-        var circle = d3.geo.circle()
+        var circle = d3.geoCircle()
             .origin([ping.lng, ping.lat])
             .angle(alive / ping.options.ttl * ping.options.angle)();
         context.beginPath();
@@ -199,15 +66,27 @@ thing();
 
     d3.json("/world-110m.json", function (error, world) {
         if (error) throw error;
-        context.clearRect(0, 0, width, height);
 
 
-        var land = topojson.feature(world, world.objects.land);
+        land = topojson.feature(world, world.objects.land);
+        projection = d3.geoMercator();
+        projection.fitSize([width, height], land);
+        // projection.fitHeight(height, land);
 
+        var canvas = d3.select("body").append("canvas")
+            .attr("width", width)
+            .attr("height", height);
+
+        context = canvas.node().getContext("2d");
+
+        path = d3.geoPath()
+            .projection(projection)
+            .context(context);
+
+        // context.clearRect(0, 0, width, height);
 
         // render the 'ocean' below the land
         d3.timer(function (elapsed) {
-
             renderFrame(elapsed, land)
         });
     });
@@ -227,13 +106,13 @@ thing();
     ];
 
     var renderFrame = function (elapsed, land) {
-        projection.rotate([velocity * elapsed, 0]);
+        // projection.rotate([velocity * elapsed, 0]);
 
         context.beginPath();
         path.context(context)({type: 'Sphere'});
         context.fillStyle = 'lightgrey';
         context.strokeStyle = '#2a3b84';
-        context.lineWidth = '15';
+        // context.lineWidth = '15';
         context.stroke();
         context.fill();
 
@@ -261,7 +140,7 @@ thing();
 
 
                 color = "rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")";
-                var circle = d3.geo.circle().origin([ping.lat, ping.lon]).angle(timediff / 900)();
+                var circle = d3.geoCircle().center([ping.lat, ping.lon]).radius(timediff / 900)();
                 context.opacity = 10;
                 context.beginPath();
                 context.strokeStyle = color;
@@ -273,7 +152,7 @@ thing();
             }
         }
 
-//        drawPings(pings);
+       drawPings(pings);
 
     };
 
